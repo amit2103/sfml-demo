@@ -129,6 +129,8 @@ static void drawOrbit(sf::RenderTarget& target, sf::Vector2f center, float aPx, 
     target.draw(va);
 }
 
+
+
 int main() {
     sf::RenderWindow window(sf::VideoMode({1200, 800}), "SFML Solar System (Kepler-ish)");
     window.setFramerateLimit(60);
@@ -137,7 +139,7 @@ int main() {
     auto stars = makeStars(700, window.getSize(), 7);
 
     // Simulation controls
-    float simDaysPerSecond = 25.f; // increase/decrease with Up/Down
+    float simDaysPerSecond = 10.f; // increase/decrease with Up/Down
     bool paused = false;
     float zoom = 1.0f;
 
@@ -153,7 +155,7 @@ int main() {
         {"Venus",   sf::Color(220,190,120), 7.f,  110.f,  0.0067f,  224.7f,   0.8f, rphase()},
         {"Earth",   sf::Color( 80,140,255), 7.f,  145.f,  0.0167f,  365.25f,  1.1f, rphase()},
         {"Mars",    sf::Color(220, 90, 70), 6.f,  190.f,  0.0934f,  687.f,    1.4f, rphase()},
-        {"Jupiter", sf::Color(200,160,120), 12.f, 260.f,  0.0489f,  4332.6f,  1.8f, rphase()},
+        {"Jupiter", sf::Color(214, 182, 142), 12.f, 260.f, 0.0489f, 4332.6f, 1.8f, rphase()},
         {"Saturn",  sf::Color(210,190,120), 10.f, 340.f,  0.0565f, 10759.2f,  2.2f, rphase()},
         {"Uranus",  sf::Color(140,220,220), 9.f,  420.f,  0.0457f, 30688.5f,  2.7f, rphase()},
         {"Neptune", sf::Color( 80,120,255), 9.f,  500.f,  0.0113f, 60182.f,   3.1f, rphase()}
@@ -211,18 +213,36 @@ int main() {
             p.trail.push(p.pos);
         }
 
-        // Moon position relative to Earth (find Earth)
-        sf::Vector2f earthPos{};
-        for (auto& p : planets) {
-            if (p.name == "Earth") { earthPos = p.pos; break; }
-        }
-        {
-            sf::Vector2f localMoon = keplerOrbitPos(moon.aPx, moon.e, moon.periodDays, simTimeDays, moon.phase0Rad);
-            // rotate moon orbit a bit for nicer look
-            localMoon = rotateVec(localMoon, 0.7f);
-            moon.pos = earthPos + localMoon * (0.9f * zoom);
-            moon.trail.push(moon.pos);
-        }
+         // Moon position relative to Earth (find Earth)
+sf::Vector2f earthPos{};
+float earthRadiusPx = 7.f; // must match Earth's radiusPx above
+
+for (auto& p : planets) {
+    if (p.name == "Earth") { earthPos = p.pos; break; }
+}
+
+{
+    sf::Vector2f localMoon = keplerOrbitPos(moon.aPx, moon.e, moon.periodDays, simTimeDays, moon.phase0Rad);
+    localMoon = rotateVec(localMoon, 0.7f);
+
+    // Apply zoom consistently (same as planets)
+    sf::Vector2f offset = localMoon * zoom;
+
+    // --- prevent visual overlap at small zoom ---
+    float r2 = offset.x * offset.x + offset.y * offset.y;
+    float r  = std::sqrt(r2);
+
+    float minR = earthRadiusPx + moon.radiusPx + 6.f;  // padding
+    if (r < minR) {
+        float scale = minR / (r + 1e-6f);
+        offset *= scale;
+    }
+    // -------------------------------------------
+
+    moon.pos = earthPos + offset;
+    moon.trail.push(moon.pos);
+}
+
 
         // --- Draw ---
         window.clear(sf::Color(5, 5, 12));
